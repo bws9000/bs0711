@@ -13,48 +13,24 @@ public class Tool {
         return toolCode;
     }
 
-    public void setToolCode(String toolCode) {
-        this.toolCode = toolCode;
-    }
-
     public String getToolType() {
         return toolType;
-    }
-
-    public void setToolType(String toolType) {
-        this.toolType = toolType;
     }
 
     public String getBrand() {
         return brand;
     }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
-
     public String getDailyCharge() {
         return dailyCharge;
-    }
-
-    public void setDailyCharge(String dailyCharge) {
-        this.dailyCharge = dailyCharge;
     }
 
     public boolean isWeekdayCharge() {
         return weekdayCharge;
     }
 
-    public void setWeekdayCharge(boolean weekdayCharge) {
-        this.weekdayCharge = weekdayCharge;
-    }
-
     public boolean isWeekendCharge() {
         return weekendCharge;
-    }
-
-    public void setWeekendCharge(boolean weekendCharge) {
-        this.weekendCharge = weekendCharge;
     }
 
     public boolean isHolidayCharge() {

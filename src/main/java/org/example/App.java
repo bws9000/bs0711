@@ -3,26 +3,26 @@ package org.example;
 import java.text.NumberFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
 public class App implements PrimaryPrompts {
 
     public final String NUMBER_INPUT_ERROR = "*** Please enter a number greater than 0. ***";
     public final String NUMBER_100_ERROR = "*** Please enter a number between 0-100. ***";
-
     public final String PROMPT_GET_TOOL_CODE = "Enter tool code:";
     public final String PROMPT_GET_TOOL_CODE_ERROR = "*** Tool not found ***";
-
     public final String PROMPT_GET_USER_RENTAL_DAYS = "Enter how many days you want to rent tool:";
     public final String PROMPT_GET_DISCOUNT_PERCENTAGE = "Enter a Discount Percentage between 1-100:";
-
-    private static final String DATE_FORMAT = "yyyy/MM/dd";
+    private static final String DATE_FORMAT = "MM/dd/yyyy";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
     private static final String PROMPT_GET_DATE = "Enter the date (format: " + DATE_FORMAT + "): ";
     private static final String PROMPT_DATE_ERROR = "Invalid date format. Please enter the date in the format " + DATE_FORMAT + ".";
 
     private Map<String, Tool> toolCollection;
+    private List<LocalDate> range;
     Tool toolSelected;
     int daysToRent;
     int discountPercentage;
@@ -32,22 +32,14 @@ public class App implements PrimaryPrompts {
     NumberFormat numberUSFormat;
     double bill;
     int chargeDays = 0;
+    UserInput userInput;
 
-    App() {
+    App(UserInput userInput) {
         initializeCollection();
         numberUSFormat = NumberFormat.getNumberInstance(Locale.US);
         numberUSFormat.setMinimumFractionDigits(2);
         numberUSFormat.setMaximumFractionDigits(2);
-        scanner = new Scanner(System.in);
-        this.primaryFlow();
-    }
-
-    private void primaryFlow() {
-        this.getToolCode();
-        this.getRentalDays();
-        this.getDiscountPercentage();
-        this.getCheckoutDate();
-        this.displayResult();
+        this.userInput = userInput;
     }
 
     public int getChargeDays() {
@@ -95,7 +87,7 @@ public class App implements PrimaryPrompts {
         Tool tool;
         do {
             System.out.println(PROMPT_GET_TOOL_CODE);
-            String toolCodeIn = scanner.nextLine();
+            String toolCodeIn = this.userInput.nextLine();
             tool = getTool(toolCodeIn.trim());
             if(tool != null){
                 setToolSelected(tool);
@@ -110,13 +102,13 @@ public class App implements PrimaryPrompts {
         do {
             System.out.println(PROMPT_GET_USER_RENTAL_DAYS);
             try {
-                daysToRent = scanner.nextInt();
+                daysToRent = this.userInput.nextInt();
                 if(daysToRent < 1) System.out.println(NUMBER_INPUT_ERROR);
             }catch(Exception e){
                 System.out.println(NUMBER_INPUT_ERROR);
                 scanner.next();
             }
-            scanner.nextLine();
+            this.userInput.nextLine();
         }while(daysToRent == 0);
     }
 
@@ -125,7 +117,7 @@ public class App implements PrimaryPrompts {
         do {
             System.out.println(PROMPT_GET_DISCOUNT_PERCENTAGE);
             try {
-                discountPercentage = scanner.nextInt();
+                discountPercentage = this.userInput.nextInt();
                 if(discountPercentage < 0) System.out.println(NUMBER_INPUT_ERROR);
                 if(discountPercentage > 100) System.out.println(NUMBER_100_ERROR);
             }catch(Exception e){
@@ -133,22 +125,24 @@ public class App implements PrimaryPrompts {
                 discountPercentage = -1;
                 scanner.next();
             }
-            scanner.nextLine();
+            this.userInput.nextLine();
         }while(discountPercentage > 100 || discountPercentage < 0);
     }
 
     @Override
     public void getCheckoutDate() {
-        do {
+        while (this.date == null) {
             System.out.println(PROMPT_GET_DATE);
             try {
-                String dateIn = scanner.nextLine().trim();
+                String dateIn = this.userInput.nextLine().trim();
                 this.setDate(LocalDate.parse(dateIn, DATE_FORMATTER));
+                range = this.generateDateRange();
             } catch (Exception e) {
                 System.out.println(PROMPT_DATE_ERROR);
             }
-        }while (this.getDate() == null);
+        }
     }
+
 
     @Override
     public void displayResult() {
@@ -165,28 +159,30 @@ public class App implements PrimaryPrompts {
         System.out.println("Pre-discount charge: $" + numberUSFormat.format(getBill()));
         System.out.println("Discount Percent: " + discountPercentage + "%");
         System.out.println("Discount Amount: $" + numberUSFormat.format(getDiscountAmount()));
-        scanner.close();
+        this.userInput.close();
     }
 
     private void generateBill() {
         double dailyCharge = 0.00;
-        boolean chargeIt = false;
         int chargedDays = 0;
 
-        List<LocalDate> range = this.generateDateRange();
         for (LocalDate date : range) {
-            if(!this.isWeekend(date) && toolSelected.isWeekdayCharge()){
+            boolean chargeIt = false;
+            if(!isHoliday(date)) {
+                if (!this.isWeekend(date) && toolSelected.isWeekdayCharge()) {
+                    chargeIt = true;
+                }
+                if (this.isWeekend(date) && toolSelected.isWeekendCharge()) {
+                    chargeIt = true;
+                }
+            } else if (toolSelected.isHolidayCharge()) {
                 chargeIt = true;
             }
-            if(this.isWeekend(date) && toolSelected.isWeekendCharge()){
-                chargeIt = true;
-            }
-            if(chargeIt) {
+
+            if (chargeIt) {
                 dailyCharge += convertStringToDouble(toolSelected.getDailyCharge());
-                chargeIt = false;
                 chargedDays++;
             }
-            System.out.println(date.format(DATE_FORMATTER));
         }
         this.setChargeDays(chargedDays);
         this.setBill(dailyCharge);
@@ -219,13 +215,30 @@ public class App implements PrimaryPrompts {
         return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     }
 
+    private boolean isJulyFourth(LocalDate date) {
+        return date.getMonth() == Month.JULY && date.getDayOfMonth() == 4;
+    }
+
+    private static boolean isLaborDay(LocalDate date) {
+        if (date.getMonth() != Month.SEPTEMBER) {
+            return false;
+        }
+        LocalDate firstMondayOfSeptember = LocalDate.of(date.getYear(), Month.SEPTEMBER, 1)
+                .with(TemporalAdjusters.firstInMonth(DayOfWeek.MONDAY));
+        return date.equals(firstMondayOfSeptember);
+    }
+
+    private boolean isHoliday(LocalDate date) {
+        return isJulyFourth(date) || isLaborDay(date);
+    }
+
     private List<LocalDate> generateDateRange() {
-        LocalDate startDate = LocalDate.parse(getDate(), DATE_FORMATTER);
-        LocalDate endDate = LocalDate.parse(getFormattedDueDate(), DATE_FORMATTER);
+        LocalDate startDate = this.date;
+        LocalDate endDate = startDate.plusDays(daysToRent - 1);
 
         List<LocalDate> dateList = new ArrayList<>();
-
         LocalDate currentDate = startDate;
+
         while (!currentDate.isAfter(endDate)) {
             dateList.add(currentDate);
             currentDate = currentDate.plusDays(1);
@@ -234,7 +247,7 @@ public class App implements PrimaryPrompts {
     }
 
     public String getDate() {
-        return date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        return date.format(DateTimeFormatter.ofPattern("MM/dd/yyyy"));
     }
 
     public void setDate(LocalDate date) {
