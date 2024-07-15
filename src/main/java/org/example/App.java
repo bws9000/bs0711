@@ -147,7 +147,7 @@ public class App implements PrimaryPrompts {
     @Override
     public void displayResult() {
         this.generateBill();
-        System.out.println("\n\nTool code: " + toolSelected.getToolCode());
+        System.out.println("\nTool code: " + toolSelected.getToolCode());
         System.out.println("Tool type: " + toolSelected.getToolType());
         System.out.println("Final charge: $" + numberUSFormat.format(getDiscount(getBill())));
         System.out.println("Tool brand: " + toolSelected.getBrand());
@@ -188,7 +188,7 @@ public class App implements PrimaryPrompts {
         this.setBill(dailyCharge);
     }
 
-    private double getDiscount(double totalCharge){
+    public double getDiscount(double totalCharge){
         double discount = (double) discountPercentage / 100;
         double totalAfterDiscount = totalCharge * (1 - discount);
         this.setDiscountAmount(totalCharge - totalAfterDiscount);
@@ -203,7 +203,7 @@ public class App implements PrimaryPrompts {
     private LocalDate generateDueDate(){
         String formattedDate = this.getDate();
         LocalDate parsedDate = LocalDate.parse(formattedDate, DATE_FORMATTER);
-        return parsedDate.plusDays(daysToRent);
+        return parsedDate.plusDays(daysToRent -1);
     }
     private String getFormattedDueDate() {
         LocalDate dueDate = this.generateDueDate();
